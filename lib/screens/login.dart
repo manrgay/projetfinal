@@ -32,7 +32,8 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     // URL ของ API สำหรับการล็อกอิน
-    final url = Uri.parse('http://10.0.2.2:3000/api/auth/login'); // ใช้ 10.0.2.2 เมื่อใช้ Android Emulator
+    final url = Uri.parse(
+        'http://10.0.2.2:3000/api/auth/login'); // ใช้ 10.0.2.2 เมื่อใช้ Android Emulator
 
     // ส่งคำขอล็อกอิน
     try {
@@ -59,11 +60,12 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => HomeScreen(
-              firstName: firstName,
-              email: email,
-              userType: userType,
-            ),
+            builder: (context) =>
+                HomeScreen(
+                  firstName: firstName,
+                  email: email,
+                  userType: userType,
+                ),
           ),
         );
       } else {
@@ -90,48 +92,58 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         title: Text('เข้าสู่ระบบ'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              controller: emailController,
-              decoration: InputDecoration(
-                labelText: 'อีเมล',
-                border: OutlineInputBorder(),
+      body: SingleChildScrollView( // ใช้ SingleChildScrollView เพื่อให้เลื่อนเนื้อหาได้
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // เพิ่มโลโก้ที่นี่
+              Image.asset(
+                'assets/logo.png', // เปลี่ยน path ตามไฟล์ของคุณ
+                height: 200, // ขนาดความสูงของโลโก้
+                width: 200, // ขนาดความกว้างของโลโก้
               ),
-            ),
-            SizedBox(height: 20),
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: 'รหัสผ่าน',
-                border: OutlineInputBorder(),
+              SizedBox(height: 20), // เว้นระยะห่าง
+              TextField(
+                controller: emailController,
+                decoration: InputDecoration(
+                  labelText: 'อีเมล',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-            SizedBox(height: 20),
-            isLoading
-                ? CircularProgressIndicator()  // แสดง loading indicator
-                : ElevatedButton(
-              onPressed: login,
-              child: Text('เข้าสู่ระบบ'),
-            ),
-            SizedBox(height: 20),
-            TextButton(
-              onPressed: () {
-                // นำทางไปยังหน้าสมัครสมาชิก
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => SignupPage()),
-                );
-              },
-              child: Text('สมัครสมาชิก'),
-            ),
-          ],
+              SizedBox(height: 20),
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: 'รหัสผ่าน',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              SizedBox(height: 20),
+              isLoading
+                  ? CircularProgressIndicator() // แสดง loading indicator
+                  : ElevatedButton(
+                onPressed: login,
+                child: Text('เข้าสู่ระบบ'),
+              ),
+              SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  // นำทางไปยังหน้าสมัครสมาชิก
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => SignupPage()),
+                  );
+                },
+                child: Text('สมัครสมาชิก'),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
 }

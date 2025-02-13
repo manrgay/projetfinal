@@ -1,24 +1,6 @@
+// home.dart
 import 'package:flutter/material.dart';
-
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Pet Sitter Finder',
-      theme: ThemeData(
-        primarySwatch: Colors.teal,
-      ),
-      home: const HomePage(),
-    );
-  }
-}
+import 'sitter_detail_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({Key? key}) : super(key: key);
@@ -34,12 +16,58 @@ class _HomePageState extends State<HomePage> {
   double? maxDistance;
   double? maxPrice;
 
+  final List<Map<String, dynamic>> sitters = [
+    {
+      'name': 'ผู้รับฝากสัตว์เลี้ยง 1',
+      'location': 'หน้ามหาวิทยาลัยพะเยา',
+      'distance': 1.0,
+      'price': 150.0,
+      'image': 'assets/pet_sitter_1.jpg'
+    },
+    {
+      'name': 'ผู้รับฝากสัตว์เลี้ยง 2',
+      'location': 'ในเมืองพะเยา',
+      'distance': 1.5,
+      'price': 200.0,
+      'image': 'assets/pet_sitter_2.jpg'
+    },
+    {
+      'name': 'ผู้รับฝากสัตว์เลี้ยง 3',
+      'location': 'หน้ามหาวิทยาลัยพะเยา',
+      'distance': 1.5,
+      'price': 180.0,
+      'image': 'assets/pet_sitter_3.jpg'
+    },
+    {
+      'name': 'ผู้รับฝากสัตว์เลี้ยง 4',
+      'location': 'ในเมืองพะเยา',
+      'distance': 17.5,
+      'price': 220.0,
+      'image': 'assets/pet_sitter_4.jpg'
+    }
+  ];
+
+  void _reloadPage() {
+    setState(() {
+      maxDistance = null;
+      maxPrice = null;
+      distanceController.clear();
+      priceController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ค้นหาผู้รับฝากสัตว์เลี้ยง'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _reloadPage,
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -93,15 +121,15 @@ class _HomePageState extends State<HomePage> {
           ),
           Expanded(
             child: ListView.builder(
-              itemCount: 10, // จำนวนผู้รับฝากสัตว์เลี้ยง (แก้ไขได้)
+              itemCount: sitters.length,
               itemBuilder: (context, index) {
-                // ตัวอย่างข้อมูลระยะทางและราคา
-                double distance = (index + 1) * 2.5; // ระยะทาง (สมมติ)
-                double price = (index + 1) * 100; // ราคา (สมมติ)
+                final sitter = sitters[index];
+                double distance = sitter['distance'];
+                double price = sitter['price'];
 
                 if ((maxDistance != null && distance > maxDistance!) ||
                     (maxPrice != null && price > maxPrice!)) {
-                  return const SizedBox.shrink(); // ซ่อนรายการที่ไม่ตรงเงื่อนไข
+                  return const SizedBox.shrink();
                 }
 
                 return Card(
@@ -111,13 +139,24 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundImage: AssetImage('assets/pet_sitter_${index + 1}.jpg'), // ใส่รูปภาพจาก asset
+                      backgroundImage: AssetImage(sitter['image']),
                     ),
-                    title: Text('ผู้รับฝากสัตว์เลี้ยง ${index + 1}'),
-                    subtitle: Text('ที่อยู่: บางนา, กรุงเทพฯ\nระยะทาง: ${distance.toStringAsFixed(1)} กม.\nราคา: ${price.toStringAsFixed(0)} บาท'),
+                    title: Text(sitter['name']),
+                    subtitle: Text('ที่อยู่: ${sitter['location']}\nระยะทาง: ${distance.toStringAsFixed(1)} กม.\nราคา: ${price.toStringAsFixed(0)} บาท'),
                     trailing: const Icon(Icons.arrow_forward_ios),
                     onTap: () {
-                      // เพิ่มการทำงานเมื่อคลิกที่ผู้รับฝากสัตว์เลี้ยง
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SitterDetailPage(
+                            name: sitter['name'],
+                            location: sitter['location'],
+                            distance: sitter['distance'],
+                            price: sitter['price'],
+                            imageAsset: sitter['image'],
+                          ),
+                        ),
+                      );
                     },
                   ),
                 );
