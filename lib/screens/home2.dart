@@ -1,4 +1,3 @@
-// home.dart
 import 'package:flutter/material.dart';
 import 'sitter_detail_page.dart';
 
@@ -22,29 +21,17 @@ class _HomePageState extends State<HomePage> {
       'location': 'หน้ามหาวิทยาลัยพะเยา',
       'distance': 1.0,
       'price': 150.0,
-      'image': 'assets/pet_sitter_1.jpg'
+      'image': 'assets/1234.png'
     },
     {
       'name': 'ผู้รับฝากสัตว์เลี้ยง 2',
       'location': 'ในเมืองพะเยา',
       'distance': 1.5,
       'price': 200.0,
-      'image': 'assets/pet_sitter_2.jpg'
+      'image': 'assets/1.png'
     },
-    {
-      'name': 'ผู้รับฝากสัตว์เลี้ยง 3',
-      'location': 'หน้ามหาวิทยาลัยพะเยา',
-      'distance': 1.5,
-      'price': 180.0,
-      'image': 'assets/pet_sitter_3.jpg'
-    },
-    {
-      'name': 'ผู้รับฝากสัตว์เลี้ยง 4',
-      'location': 'ในเมืองพะเยา',
-      'distance': 17.5,
-      'price': 220.0,
-      'image': 'assets/pet_sitter_4.jpg'
-    }
+
+
   ];
 
   void _reloadPage() {
@@ -58,10 +45,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final Color primaryColor = const Color(0xFFFF6600);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('ค้นหาผู้รับฝากสัตว์เลี้ยง'),
         centerTitle: true,
+        backgroundColor: primaryColor,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -71,54 +61,85 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: primaryColor.withOpacity(0.05),
             child: Column(
               children: [
                 TextField(
                   decoration: InputDecoration(
                     hintText: 'ค้นหาผู้รับฝากสัตว์เลี้ยง...',
                     prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
+                    filled: true,
+                    fillColor: Colors.white,
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: primaryColor, width: 2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: distanceController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'ระยะทางสูงสุด (กม.)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: distanceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'ระยะทางสูงสุด (กม.)',
+                          filled: true,
+                          fillColor: Colors.white,
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            maxDistance = double.tryParse(value);
+                          });
+                        },
+                      ),
                     ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      maxDistance = double.tryParse(value);
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: priceController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'เรทราคาสูงสุด (บาท)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextField(
+                        controller: priceController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'เรทราคาสูงสุด (บาท)',
+                          filled: true,
+                          fillColor: Colors.white,
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: primaryColor, width: 2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            maxPrice = double.tryParse(value);
+                          });
+                        },
+                      ),
                     ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      maxPrice = double.tryParse(value);
-                    });
-                  },
+                  ],
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
               itemCount: sitters.length,
@@ -134,16 +155,38 @@ class _HomePageState extends State<HomePage> {
 
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  elevation: 5,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: AssetImage(sitter['image']),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        sitter['image'],
+                        width: 50, // ขนาดรูปใหม่
+                        height: 50,
+                        fit: BoxFit.cover,
+                      ),
                     ),
-                    title: Text(sitter['name']),
-                    subtitle: Text('ที่อยู่: ${sitter['location']}\nระยะทาง: ${distance.toStringAsFixed(1)} กม.\nราคา: ${price.toStringAsFixed(0)} บาท'),
-                    trailing: const Icon(Icons.arrow_forward_ios),
+                    title: Text(
+                      sitter['name'],
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'ที่อยู่: ${sitter['location']}\n'
+                            'ระยะทาง: ${distance.toStringAsFixed(1)} กม.\n'
+                            'ราคา: ${price.toStringAsFixed(0)} บาท',
+                        style: const TextStyle(height: 1.4),
+                      ),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 18),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -165,6 +208,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+      backgroundColor: Colors.grey[100],
     );
   }
 

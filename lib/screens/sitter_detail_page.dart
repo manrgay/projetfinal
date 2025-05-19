@@ -28,54 +28,136 @@ class SitterDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFFFF6600);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(name),
+        backgroundColor: primaryColor,
+        title: Text(
+          name,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Center(
-              child: CircleAvatar(
-                radius: 50,
-                backgroundImage: AssetImage(imageAsset),
-              ),
+            CircleAvatar(
+              radius: 60,
+              backgroundImage: AssetImage(imageAsset),
             ),
-            const SizedBox(height: 16),
-            Text('ชื่อ: $name', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
+            Text(
+              name,
+              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
             GestureDetector(
               onTap: () => _openGoogleMaps(location),
-              child: Text(
-                '📍 ที่อยู่: $location',
-                style: const TextStyle(fontSize: 16, color: Colors.blue, decoration: TextDecoration.underline),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.location_on, color: primaryColor),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      location,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: primaryColor,
+                        decoration: TextDecoration.underline,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text('ระยะทาง: ${distance.toStringAsFixed(1)} กม.', style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 8),
-            Text('ค่าบริการ: ${price.toStringAsFixed(0)} บาท', style: const TextStyle(fontSize: 16)),
-            const Spacer(),
+            const SizedBox(height: 20),
+            Divider(color: Colors.grey.shade300, thickness: 1),
+            const SizedBox(height: 10),
+            InfoRow(label: 'ระยะทาง', value: '${distance.toStringAsFixed(1)} กม.', icon: Icons.map),
+            const SizedBox(height: 10),
+            InfoRow(label: 'ค่าบริการ', value: '${price.toStringAsFixed(0)} บาท', icon: Icons.attach_money),
+            const SizedBox(height: 30),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.calendar_today),
-                  label: const Text('จอง'),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // ใส่ฟังก์ชันการจองที่นี่
+                    },
+                    icon: const Icon(Icons.calendar_today),
+                    label: const Text('จอง'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      textStyle: const TextStyle(fontSize: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.phone),
-                  label: const Text('ติดต่อ'),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      // ใส่ฟังก์ชันการติดต่อที่นี่
+                    },
+                    icon: const Icon(Icons.phone),
+                    label: const Text('ติดต่อ'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      textStyle: const TextStyle(fontSize: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const InfoRow({
+    Key? key,
+    required this.label,
+    required this.value,
+    required this.icon,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.grey[700]),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 16),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+      ],
     );
   }
 }

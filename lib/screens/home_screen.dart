@@ -32,24 +32,56 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ฟังก์ชันแสดง Dialog ยืนยันการออกจากระบบ
+  void _showLogoutConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('ออกจากระบบ'),
+          content: Text('คุณแน่ใจไหม ว่าจะออกจากระบบ?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
+              onPressed: () {
+                Navigator.of(context).pop(); // ปิด dialog
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFFFF6600), // ปุ่มสีส้ม
+              ),
+              child: Text('ยืนยัน', style: TextStyle(color: Colors.white)),
+              onPressed: () {
+                Navigator.of(context).pop(); // ปิด dialog ก่อน
+                Navigator.pushReplacementNamed(context, '/login'); // ไปหน้า login
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('หน้าหลัก'),
+        title: Text('หน้าหลัก', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Color(0xFFFF6600),
+        elevation: 0,
+        automaticallyImplyLeading: false, // ไม่มีปุ่มย้อนกลับ
         actions: [
-          // ไอคอนตั้งค่า
           IconButton(
-            icon: Icon(Icons.settings),
+            icon: Icon(Icons.settings, color: Colors.white),
             onPressed: () {
               Navigator.pushNamed(context, '/settings');
             },
           ),
-          // ไอคอนออกจากระบบ
           IconButton(
-            icon: Icon(Icons.logout),
+            icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () {
-              Navigator.pushReplacementNamed(context, '/login');
+              _showLogoutConfirmationDialog(context); // ใช้ Dialog เมื่อกด logout
             },
           ),
         ],
@@ -65,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 20),
                 Text(
                   'เมนูการใช้งาน',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
                 SizedBox(height: 10),
                 _buildUserMenu(context),
@@ -80,27 +112,25 @@ class _HomeScreenState extends State<HomeScreen> {
   // ส่วนแสดงข้อมูลผู้ใช้งาน พร้อมไอคอน Edit และการเปลี่ยนรูปโปรไฟล์
   Widget _buildUserInfoCard(BuildContext context) {
     return Card(
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: Colors.white,
       child: ListTile(
         leading: GestureDetector(
-          onTap: _pickImage, // เมื่อกดที่รูปโปรไฟล์ให้เปลี่ยนภาพ
+          onTap: _pickImage,
           child: CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.blueAccent,
-            backgroundImage: _profileImage != null
-                ? FileImage(_profileImage!) // แสดงรูปใหม่หากมี
-                : null,
-            child: _profileImage == null ? Icon(Icons.person, color: Colors.white) : null, // แสดงไอคอนหากยังไม่มีภาพ
+            radius: 35,
+            backgroundColor: Color(0xFFFF6600),
+            backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
+            child: _profileImage == null ? Icon(Icons.person, color: Colors.white) : null,
           ),
         ),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.firstName, style: TextStyle(fontWeight: FontWeight.bold)),
-            // ไอคอน Edit สำหรับแก้ไขข้อมูลผู้ใช้งาน
+            Text(widget.firstName, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
             IconButton(
-              icon: Icon(Icons.edit),
+              icon: Icon(Icons.edit, color: Color(0xFFFF6600)),
               onPressed: () {
                 Navigator.pushNamed(context, '/edit-profile');
               },
@@ -110,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.email),
+            Text(widget.email, style: TextStyle(color: Colors.black, fontSize: 16)),
             SizedBox(height: 5),
             Row(
               children: [
@@ -143,36 +173,36 @@ class _HomeScreenState extends State<HomeScreen> {
           _menuItem(context, Icons.pets, 'จองการรับฝากสัตว์เลี้ยง', '/booking'),
           _menuItem(context, Icons.edit, 'กรอกข้อมูลสัตว์เลี้ยง', '/pet-info'),
           _menuItem(context, Icons.pets, 'รายการสัตว์เลี้ยงของฉัน', '/pet-list', userEmail: widget.email),
-          _menuItem(context, Icons.history, 'ติดตามสถานะของสัตว์เลี่้ยง', '/update'),
+          _menuItem(context, Icons.history, 'ติดตามสถานะของสัตว์เลี้ยง', '/update'),
           _menuItem(context, Icons.history, 'ประวัติการฝาก', '/history'),
-          _menuItem(context, Icons.chat, 'แชทกับผู้รับฝาก', '/chat'),
         ],
       );
     } else if (widget.userType == 'sitter') {
       return Column(
         children: [
           _menuItem(context, Icons.pets, 'จองการรับฝากสัตว์เลี้ยง', '/booking'),
-          _menuItem(context, Icons.edit, 'กรอกข้อมูลแนะตัวในหน้าหลัก', '/name'),
+          _menuItem(context, Icons.edit, 'กรอกข้อมูลแนะตัวในหน้าหลัก', '/extends'),
           _menuItem(context, Icons.list, 'รายการคำขอรับฝาก', '/requests'),
           _menuItem(context, Icons.list, 'แจ้งสถานะของสัตว์เลี้ยง', '/update2'),
-          _menuItem(context, Icons.chat, 'แชทกับลูกค้า', '/chat'),
         ],
       );
     } else {
-      return Center(child: Text('เกิดข้อผิดพลาดในการโหลดเมนู'));
+      return Center(child: Text('เกิดข้อผิดพลาดในการโหลดเมนู', style: TextStyle(color: Colors.black, fontSize: 16)));
     }
   }
 
   // ฟังก์ชันสร้างไอเท็มเมนู พร้อมเพิ่มฟังก์ชันการนำทาง
   Widget _menuItem(BuildContext context, IconData icon, String title, String route, {String? userEmail}) {
     return Card(
+      margin: EdgeInsets.symmetric(vertical: 5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 5,
       child: ListTile(
-        leading: Icon(icon, color: Colors.blueAccent),
-        title: Text(title),
+        leading: Icon(icon, color: Color(0xFFFF6600)),
+        title: Text(title, style: TextStyle(color: Colors.black, fontSize: 16)),
         onTap: () {
-          // ส่งอีเมลของผู้ใช้ไปยังหน้าถัดไปในกรณีที่มี
           if (userEmail != null) {
-            Navigator.pushNamed(context, route, arguments: userEmail); // ส่งอีเมลไปที่หน้า PetListScreen
+            Navigator.pushNamed(context, route, arguments: userEmail);
           } else {
             Navigator.pushNamed(context, route);
           }

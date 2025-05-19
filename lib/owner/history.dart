@@ -1,48 +1,90 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(MyApp());
-}
+class DepositHistoryScreen extends StatelessWidget {
+  const DepositHistoryScreen({super.key});
 
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: PetBoardingHistory(),
-    );
-  }
-}
-
-class PetBoardingHistory extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFF3E0), // พื้นหลังสีส้มอ่อน
       appBar: AppBar(
-        title: Text('ประวัติการฝากสัตว์เลี้ยง'),
-      ),
-      body: ListView(
-        children: [
-          ListTile(
-            title: Text('สุนัขชื่อ "Buddy"'),
-            subtitle: Text('ประเภท: สุนัข, วันที่ฝาก: 10/12/2024, สถานะ: กำลังอยู่ในการดูแล'),
-            onTap: () {
-              // เข้าสู่หน้ารายละเอียด
-            },
+        title: const Text(
+          'ประวัติการฝาก',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
-          ListTile(
-            title: Text('แมวชื่อ "Mimi"'),
-            subtitle: Text('ประเภท: แมว, วันที่ฝาก: 15/12/2024, สถานะ: คืนแล้ว'),
-            onTap: () {
-              // เข้าสู่หน้ารายละเอียด
-            },
-          ),
-        ],
+        ),
+        centerTitle: true,
+        backgroundColor: const Color(0xFFFF6600), // สี #FF6600
+        elevation: 4,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // ฟังก์ชันการเพิ่มการฝากใหม่
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: 2, // ตัวอย่างมี 2 รายการ
+        itemBuilder: (context, index) {
+          return Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            elevation: 5,
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF6600),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.pets,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'ชื่อสัตว์เลี้ยง: ....................',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text('ประเภท: ....................'),
+                        Text('วันที่ฝาก: DD/MM/YY'),
+                        Text(
+                          'สถานะ: ....................',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
         },
-        child: Icon(Icons.add),
       ),
     );
   }
