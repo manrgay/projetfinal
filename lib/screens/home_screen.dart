@@ -228,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _menuItem(context, Icons.edit, 'กรอกข้อมูลสัตว์เลี้ยง', '/pet-info', userEmail: email),
           _menuItem(context, Icons.pets, 'รายการสัตว์เลี้ยงของฉัน', '/pet-list', userEmail: email),
           _menuItem(context, Icons.history, 'ติดตามสัตว์เลี้ยง', '/update'),
-          _menuItem(context, Icons.history, 'ประวัติการฝาก', '/history'),
+          _menuItem(context, Icons.history, 'ยกเลิกการฝาก', '/cancel'),
         ],
       );
     } else if (userType == 'sitter') {

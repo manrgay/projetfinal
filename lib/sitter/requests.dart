@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:psoeass/owner/pet_provider.dart';
 
 class DepositRequestListScreen extends StatefulWidget {
   const DepositRequestListScreen({super.key});
@@ -22,7 +24,11 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
   }
 
   Future<void> _loadBookings() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      bookings = [];
+    });
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token') ?? '';
 
@@ -35,8 +41,7 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
     }
 
     try {
-      final url =
-      Uri.parse('http://10.0.2.2:3000/api/auth/deposit_requests');
+      final url = Uri.parse('http://10.0.2.2:3000/api/auth/deposit_requests');
       final response = await http.get(url, headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
@@ -47,7 +52,10 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
       final List<dynamic> bookingList = jsonDecode(response.body);
 
       setState(() {
-        bookings = bookingList.cast<Map<String, dynamic>>();
+        bookings = bookingList
+            .cast<Map<String, dynamic>>()
+            .where((b) => b['status'] == 'pending')
+            .toList();
         isLoading = false;
       });
     } catch (e) {
@@ -58,7 +66,7 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
     }
   }
 
-  Widget _buildPetItem(Map<String, dynamic> pet) {
+  Widget _buildPetItem(Map<String, dynamic> pet, {String? ownerEmail}) {
     String? imageBase64;
     final img = pet['image'];
     if (img != null) {
@@ -105,6 +113,7 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
           children: [
             Text(
                 '${pet['type'] ?? '-'}, ${pet['age'] ?? '-'} ${pet['age_unit'] ?? ''}'),
+            Text('เจ้าของ: ${ownerEmail ?? pet['ownerEmail'] ?? '-'}'),
             if (pet['additional_info'] != null &&
                 pet['additional_info'].toString().isNotEmpty)
               Padding(
@@ -120,9 +129,84 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
     );
   }
 
-  Widget _buildBookingCard(Map<String, dynamic> booking) {
+  Future<void> _updateBookingStatus(
+      Map<String, dynamic> booking, int index, String status) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+    if (token.isEmpty) return;
+
+    try {
+      final url = Uri.parse(
+        'http://10.0.2.2:3000/api/auth/deposit_requests/${booking['id']}/status',
+      );
+
+      final response = await http.patch(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'status': status}),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          bookings.removeAt(index);
+        });
+
+        if (status == 'confirmed') {
+          final petProvider = context.read<PetProvider>();
+          final pets = booking['pets'] as List<dynamic>? ?? [];
+          for (var pet in pets) {
+            petProvider.addPet({
+              'name': pet['name'] ?? '-',
+              'type': pet['type'] ?? '-',
+              'age': pet['age'] ?? 0,
+              'status': 'กำลังอยู่ในความดูแล',
+              'store': booking['service'] ?? '-',
+              'startDate': booking['date'] ?? '',
+              'returnDate': booking['return_date'] ?? '',
+              'image': pet['image'] ?? null,
+              'additional_info': pet['additional_info'] ?? '',
+              'ownerEmail': booking['user_email'] ?? '-',
+            });
+          }
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${status == 'confirmed' ? 'ยืนยัน' : 'ปฏิเสธ'}การจอง',
+            ),
+          ),
+        );
+      } else {
+        throw Exception('ไม่สามารถอัพเดต booking ได้');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
+      );
+    }
+  }
+
+  void _onConfirmBooking(Map<String, dynamic> booking, int index) {
+    _updateBookingStatus(booking, index, 'confirmed');
+  }
+
+  void _onRejectBooking(int index) {
+    final booking = bookings[index];
+    _updateBookingStatus(booking, index, 'rejected');
+  }
+
+  String formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return '-';
+    return dateStr.split('T')[0];
+  }
+
+  Widget _buildBookingCard(Map<String, dynamic> booking, int index) {
     final pets = booking['pets'] as List<dynamic>? ?? [];
-    final returnDate = booking['return_date']; // ดึง return_date
+    final returnDate = booking['return_date'];
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
@@ -141,7 +225,8 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
               ),
               child: Text(
                 'ผู้จอง: ${booking['user_email']}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
             const SizedBox(height: 12),
@@ -153,9 +238,9 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
               ],
             ),
             const SizedBox(height: 4),
-            Text('วันที่ฝาก: ${booking['date'].split("T")[0]}'),
+            Text('วันที่ฝาก: ${formatDate(booking['date'])}'),
             if (returnDate != null && returnDate.toString().isNotEmpty)
-              Text('วันที่รับกลับ: ${returnDate.split("T")[0]}'), // แสดง return_date
+              Text('วันที่รับกลับ: ${formatDate(returnDate)}'),
             if (booking['note'] != null && booking['note'].toString().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -167,9 +252,11 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 4),
-            ...pets.map((pet) => _buildPetItem(pet as Map<String, dynamic>)),
+            ...pets.map((pet) => _buildPetItem(
+              pet as Map<String, dynamic>,
+              ownerEmail: booking['user_email'],
+            )),
             const SizedBox(height: 12),
-            // ปุ่มยืนยัน / ปฏิเสธ
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -177,14 +264,7 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red.shade400,
                   ),
-                  onPressed: () {
-                    // TODO: เรียก API ปฏิเสธการจอง
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(
-                              'ปฏิเสธการจอง ${booking['user_email']}')),
-                    );
-                  },
+                  onPressed: () => _onRejectBooking(index),
                   child: const Text('ปฏิเสธ'),
                 ),
                 const SizedBox(width: 12),
@@ -192,14 +272,7 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade400,
                   ),
-                  onPressed: () {
-                    // TODO: เรียก API ยืนยันการจอง
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(
-                              'ยืนยันการจอง ${booking['user_email']}')),
-                    );
-                  },
+                  onPressed: () => _onConfirmBooking(booking, index),
                   child: const Text('ยืนยัน'),
                 ),
               ],
@@ -209,7 +282,6 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +300,7 @@ class _DepositRequestListScreenState extends State<DepositRequestListScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: bookings.length,
           itemBuilder: (context, index) {
-            return _buildBookingCard(bookings[index]);
+            return _buildBookingCard(bookings[index], index);
           },
         ),
       ),

@@ -15,7 +15,7 @@ import 'sitter/update2.dart';
 import 'screens/SettingsScreen.dart';
 
 import 'owner/pet_provider.dart';
-
+import 'owner/cancel.dart';
 void main() {
   runApp(
     ChangeNotifierProvider(
@@ -74,6 +74,8 @@ class MyApp extends StatelessWidget {
         '/update2': (context) => const PetStatusScreen(),
         '/settings': (context) => SettingsScreen(),
         '/login': (context) => const LoginScreen(),
+
+        '/cancel': (context) => const OwnerBookingScreen(),
       },
     );
   }
