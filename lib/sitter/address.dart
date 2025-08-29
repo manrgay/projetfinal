@@ -1,85 +1,147 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'map_picker_page.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+class AddSitterScreen extends StatefulWidget {
+  const AddSitterScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'ฟอร์มกรอกข้อมูล',
-      theme: ThemeData(
-        primarySwatch: Colors.orange,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFFF6600), // เพิ่มสี #FF6600 สำหรับ AppBar
-          foregroundColor: Colors.white, // ข้อความใน AppBar เป็นสีขาว
-          elevation: 0,
-          centerTitle: true,
-          titleTextStyle: TextStyle(
-            color: Colors.white, // สีข้อความใน AppBar เป็นสีขาว
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-          iconTheme: IconThemeData(color: Colors.white), // ไอคอนใน AppBar เป็นสีขาว
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: Color(0xFFFFF3E0),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-            borderSide: BorderSide(color: Color(0xFFFF6600), width: 2),
-          ),
-          labelStyle: TextStyle(color: Colors.black),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFFFF6600), // สีส้มตามที่ต้องการ
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(20)),
-            ),
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
-          ),
-        ),
-        switchTheme: SwitchThemeData(
-          thumbColor: MaterialStateProperty.all(Color(0xFFFF6600)), // สีส้มสำหรับ switch
-        ),
-      ),
-      home: const FormPage(),
+  State<AddSitterScreen> createState() => _AddSitterScreenState();
+}
+
+class _AddSitterScreenState extends State<AddSitterScreen> {
+  final nameController = TextEditingController();
+  final addressController = TextEditingController();
+  final serviceController = TextEditingController();
+  final priceController = TextEditingController();
+  final phoneController = TextEditingController();
+  final lineController = TextEditingController();
+  final facebookController = TextEditingController();
+  final instagramController = TextEditingController();
+  LatLng? _selectedLatLng;
+  File? _selectedImage;
+
+  final ImagePicker _picker = ImagePicker();
+
+  void _pickLocation() async {
+    final result = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(builder: (context) => const MapPickerPage()),
     );
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedLatLng = result;
+      });
+    }
   }
-}
 
-class FormPage extends StatefulWidget {
-  const FormPage({Key? key}) : super(key: key);
+  void _pickImage() async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+    );
 
-  @override
-  State<FormPage> createState() => _FormPageState();
-}
+    if (pickedFile != null && mounted) {
+      setState(() {
+        _selectedImage = File(pickedFile.path);
+      });
+    }
+  }
 
-class _FormPageState extends State<FormPage> {
-  final TextEditingController nameController = TextEditingController();
-  final TextEditingController addressController = TextEditingController();
-  final TextEditingController serviceController = TextEditingController();
-  final TextEditingController priceController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController lineController = TextEditingController();
-  final TextEditingController facebookController = TextEditingController();
-  final TextEditingController instagramController = TextEditingController();
+  void _saveData() async {
+    if (_selectedLatLng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรุณาเลือกพิกัดจากแผนที่ก่อนบันทึก')),
+      );
+      return;
+    }
 
-  bool isPetFriendly = false;
+    try {
+      // ดึง token จาก SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('กรุณาเข้าสู่ระบบก่อนบันทึกข้อมูล')),
+        );
+        return;
+      }
+
+      // แปลงรูปภาพเป็น base64 ถ้ามี
+      String? imageBase64;
+      if (_selectedImage != null) {
+        final bytes = await _selectedImage!.readAsBytes();
+        imageBase64 = base64Encode(bytes);
+      }
+
+      // เตรียม body
+      final body = jsonEncode({
+        'name': nameController.text,
+        'address': addressController.text,
+        'service': serviceController.text,
+        'price': double.tryParse(priceController.text) ?? 0,
+        'phone': phoneController.text,
+        'line_id': lineController.text,
+        'facebook_link': facebookController.text,
+        'instagram_link': instagramController.text,
+        'latitude': _selectedLatLng!.latitude,
+        'longitude': _selectedLatLng!.longitude,
+        'image': imageBase64,
+      });
+
+      // ส่ง POST request
+      final url = Uri.parse('http://10.0.2.2:3000/api/auth/sitters');
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // ส่ง token
+        },
+        body: body,
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 201) {
+        _clearFields();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('เกิดข้อผิดพลาด: ${response.body}')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการส่งข้อมูล: $e')),
+      );
+    }
+  }
+
+
+  void _clearFields() {
+    nameController.clear();
+    addressController.clear();
+    serviceController.clear();
+    priceController.clear();
+    phoneController.clear();
+    lineController.clear();
+    facebookController.clear();
+    instagramController.clear();
+    setState(() {
+      _selectedLatLng = null;
+      _selectedImage = null;
+    });
+  }
 
   @override
   void dispose() {
@@ -96,46 +158,70 @@ class _FormPageState extends State<FormPage> {
 
   @override
   Widget build(BuildContext context) {
+    const orange = Color(0xFFFF6600);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('กรอกข้อมูล'),
-        backgroundColor: const Color(0xFFFF6600), // ตั้งค่า backgroundColor เป็น #FF6600
-        leading: Navigator.canPop(context)
-            ? IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        )
-            : null,
+        backgroundColor: orange,
+        leading: const BackButton(color: Colors.white),
+        title: const Text('กรอกข้อมูล', style: TextStyle(color: Colors.white)),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: ListView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
           children: [
-            _buildTextField('ชื่อ', nameController, icon: Icons.person),
-            const SizedBox(height: 16),
-            _buildTextField('ที่อยู่', addressController, icon: Icons.home),
-            const SizedBox(height: 16),
-            _buildTextField('บริการ', serviceController, icon: Icons.miscellaneous_services),
-            const SizedBox(height: 16),
-            _buildPriceField(),
-            const SizedBox(height: 24),
-            _buildSwitch(),
-            const SizedBox(height: 24),
-            _buildTextField('เบอร์โทรติดต่อ', phoneController, icon: Icons.phone),
-            const SizedBox(height: 16),
-            _buildTextField('Line', lineController, icon: Icons.chat),
-            const SizedBox(height: 16),
-            _buildTextField('Facebook (ลิงก์)', facebookController, icon: Icons.facebook),
-            const SizedBox(height: 16),
-            _buildTextField('Instagram (ลิงก์)', instagramController, icon: Icons.camera_alt),
-            const SizedBox(height: 32),
+            _inputField(nameController, 'ชื่อ/ชื่อร้านค้า', Icons.person),
+            _inputField(addressController, 'ที่อยู่', Icons.home),
+            _inputField(serviceController, 'บริการ', Icons.settings),
+            _inputFieldWithSuffix(priceController, 'ราคา', Icons.monetization_on, 'บาท/วัน', TextInputType.number),
+            _inputField(phoneController, 'เบอร์โทรติดต่อ', Icons.phone, TextInputType.phone),
+            _inputField(lineController, 'LineID', Icons.message),
+            _inputField(facebookController, 'Facebook ', Icons.facebook),
+            _inputField(instagramController, 'Instagram ', Icons.camera_alt),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.image),
+              label: const Text('เลือกภาพประกอบ'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: orange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+            if (_selectedImage != null) ...[
+              const SizedBox(height: 10),
+              Image.file(_selectedImage!, width: 150, height: 150, fit: BoxFit.cover),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _pickLocation,
+              icon: const Icon(Icons.map),
+              label: const Text('เลือกพิกัดจากแผนที่'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: orange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+            if (_selectedLatLng != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Lat: ${_selectedLatLng!.latitude.toStringAsFixed(6)} | Lng: ${_selectedLatLng!.longitude.toStringAsFixed(6)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+            const SizedBox(height: 30),
             ElevatedButton(
-              onPressed: () {
-                _saveData();
-              },
-              child: const Text('บันทึก'),
+              onPressed: _saveData,
+              child: const Text('บันทึกข้อมูล', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEEEFF1),
+                foregroundColor: orange,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                minimumSize: const Size.fromHeight(50),
+                elevation: 3,
+              ),
             ),
           ],
         ),
@@ -143,78 +229,35 @@ class _FormPageState extends State<FormPage> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {IconData? icon, String? iconImage}) {
-    return TextField(
-      controller: controller,
-      style: const TextStyle(color: Colors.black),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: icon != null
-            ? Icon(icon, color: Color(0xFFFF6600)) // ใช้สีส้มสำหรับไอคอน
-            : (iconImage != null
-            ? Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Image.asset(iconImage),
-        )
-            : null),
+  Widget _inputField(TextEditingController controller, String label, IconData icon, [TextInputType type = TextInputType.text]) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: type,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: const Color(0xFFFF6600)),
+          labelText: label,
+          border: const UnderlineInputBorder(),
+        ),
       ),
     );
   }
 
-  Widget _buildPriceField() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: priceController,
-            keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.black),
-            decoration: const InputDecoration(
-              labelText: 'ราคา',
-            ),
-          ),
+  Widget _inputFieldWithSuffix(TextEditingController controller, String label, IconData icon, String suffix, [TextInputType type = TextInputType.number]) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: type,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: const Color(0xFFFF6600)),
+          suffixText: suffix,
+          suffixStyle: const TextStyle(fontWeight: FontWeight.bold),
+          labelText: label,
+          border: const UnderlineInputBorder(),
         ),
-        const SizedBox(width: 8),
-        const Text(
-          'บาท/วัน',
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSwitch() {
-    return Row(
-      children: [
-        const Text(
-          'พิกัด:',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Switch(
-          value: isPetFriendly,
-          activeColor: Color(0xFFFF6600), // สีส้มสำหรับ switch
-          onChanged: (value) {
-            setState(() {
-              isPetFriendly = value;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  void _saveData() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('บันทึกข้อมูลเรียบร้อย')),
+      ),
     );
   }
 }

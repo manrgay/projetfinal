@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SignupPage extends StatefulWidget {
   @override
@@ -14,66 +15,95 @@ class _SignupPageState extends State<SignupPage> {
   final _lastNameController = TextEditingController();
   String _userType = 'owner'; // Default to 'owner'
   bool _isLoading = false;
-  String _emailError = ''; // ใช้ตัวแปรสำหรับแสดงข้อผิดพลาดอีเมล
+  String _emailError = ''; // สำหรับแสดงข้อผิดพลาดอีเมล
 
   Future<void> _signup() async {
     setState(() {
       _isLoading = true;
-      _emailError = ''; // รีเซ็ตข้อผิดพลาดก่อน
+      _emailError = '';
     });
 
-    final response = await http.post(
-      Uri.parse('http://10.0.2.2:3000/api/auth/signup'), // API URL
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'email': _emailController.text,
-        'password': _passwordController.text,
-        'firstName': _firstNameController.text,
-        'lastName': _lastNameController.text,
-        'userType': _userType, // Send user type
-      }),
-    );
-
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (response.statusCode == 200) {
-      // Signup success: Show success dialog and navigate to login page
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('ลงทะเบียนสำเร็จ!'),
-            content: Text('คุณสามารถเข้าสู่ระบบได้แล้ว'),
-            actions: <Widget>[
-              TextButton(
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/login');
-                },
-                child: Text('ตกลง'),
-              ),
-            ],
-          );
-        },
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:3000/api/auth/signup'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': _emailController.text,
+          'password': _passwordController.text,
+          'firstName': _firstNameController.text,
+          'lastName': _lastNameController.text,
+          'userType': _userType,
+        }),
       );
-    } else if (response.statusCode == 409) {
-      // Email already exists (Conflict Error)
+
       setState(() {
-        _emailError = 'อีเมลนี้ถูกใช้ไปแล้ว กรุณาลองใช้อีเมลอื่น';
+        _isLoading = false;
       });
-    } else {
-      // Signup failed: Show failure dialog
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        // ถ้าเป็น sitter ให้เก็บ sitterId ใน SharedPreferences
+        if (_userType == 'sitter' && data['sitterId'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          prefs.setInt('sitterId', data['sitterId']);
+          prefs.setString('userType', _userType);
+        }
+
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('ลงทะเบียนสำเร็จ!'),
+              content: Text('คุณสามารถเข้าสู่ระบบได้แล้ว'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/login');
+                  },
+                  child: Text('ตกลง'),
+                ),
+              ],
+            );
+          },
+        );
+      } else if (response.statusCode == 409) {
+        setState(() {
+          _emailError = 'อีเมลนี้ถูกใช้ไปแล้ว กรุณาลองใช้อีเมลอื่น';
+        });
+      } else {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: Text('ลงทะเบียนล้มเหลว!'),
+              content: Text('กรุณาลองใหม่อีกครั้ง'),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('ปิด'),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       showDialog(
         context: context,
         builder: (BuildContext context) {
           return AlertDialog(
-            title: Text('ลงทะเบียนล้มเหลว!'),
-            content: Text('กรุณาลองใหม่อีกครั้ง'),
+            title: Text('เกิดข้อผิดพลาด'),
+            content: Text('ไม่สามารถเชื่อมต่อกับ server ได้\n$e'),
             actions: <Widget>[
               TextButton(
                 onPressed: () {
-                  Navigator.of(context).pop(); // Close the dialog
+                  Navigator.of(context).pop();
                 },
                 child: Text('ปิด'),
               ),
@@ -89,7 +119,7 @@ class _SignupPageState extends State<SignupPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('ลงทะเบียน', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFFFF6600), // สีส้มสดใส
+        backgroundColor: Color(0xFFFF6600),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -138,7 +168,6 @@ class _SignupPageState extends State<SignupPage> {
                   contentPadding: EdgeInsets.symmetric(vertical: 15, horizontal: 10),
                 ),
               ),
-              // แสดงข้อผิดพลาดสำหรับอีเมล
               if (_emailError.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
@@ -184,7 +213,7 @@ class _SignupPageState extends State<SignupPage> {
                 }).toList(),
                 dropdownColor: Colors.white,
                 isExpanded: true,
-                iconEnabledColor: Color(0xFFFF6600), // สีส้มสดใส
+                iconEnabledColor: Color(0xFFFF6600),
               ),
               SizedBox(height: 32),
 
@@ -192,7 +221,7 @@ class _SignupPageState extends State<SignupPage> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _signup,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFFFF6600), // สีส้มสดใส
+                  backgroundColor: Color(0xFFFF6600),
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 16),
                 ),

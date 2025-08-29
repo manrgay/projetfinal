@@ -30,10 +30,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('แก้ไขโปรไฟล์'),
+        title: const Text('แก้ไขโปรไฟล์'),
         backgroundColor: Colors.orangeAccent,
       ),
-      body: Padding(
+      body: SingleChildScrollView(   // รองรับหน้าจอเลื่อนเมื่อคีย์บอร์ดขึ้น
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
@@ -41,37 +41,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             children: [
               TextFormField(
                 initialValue: _firstName,
-                decoration: InputDecoration(labelText: 'ชื่อผู้ใช้'),
+                decoration: const InputDecoration(
+                  labelText: 'ชื่อผู้ใช้',
+                  border: OutlineInputBorder(),
+                ),
+                textInputAction: TextInputAction.next,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'กรุณากรอกชื่อผู้ใช้';
                   }
                   return null;
                 },
                 onSaved: (value) {
-                  _firstName = value!;
+                  _firstName = value!.trim();
                 },
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 initialValue: _email,
-                decoration: InputDecoration(labelText: 'อีเมล'),
+                decoration: const InputDecoration(
+                  labelText: 'อีเมล',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
                 validator: (value) {
-                  if (value == null || value.isEmpty || !value.contains('@')) {
+                  if (value == null || value.trim().isEmpty || !value.contains('@')) {
                     return 'กรุณากรอกอีเมลที่ถูกต้อง';
                   }
                   return null;
                 },
                 onSaved: (value) {
-                  _email = value!;
+                  _email = value!.trim();
                 },
               ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _saveProfile,
-                child: Text('บันทึกการเปลี่ยนแปลง'),
-                style: ElevatedButton.styleFrom(
-                  primary: Colors.orangeAccent,
-                  padding: EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _saveProfile,
+                  child: const Text('บันทึกการเปลี่ยนแปลง'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orangeAccent,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
                 ),
               ),
             ],
@@ -84,10 +98,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _saveProfile() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      // แสดงข้อความสำเร็จหรือทำการอัปเดตข้อมูลโปรไฟล์
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ข้อมูลโปรไฟล์ของคุณได้รับการอัปเดตแล้ว')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ข้อมูลโปรไฟล์ของคุณได้รับการอัปเดตแล้ว')),
+      );
 
-      // หลังจากบันทึกข้อมูลเสร็จ ส่งข้อมูลกลับไปยังหน้า HomeScreen
       Navigator.pop(context, {
         'firstName': _firstName,
         'email': _email,

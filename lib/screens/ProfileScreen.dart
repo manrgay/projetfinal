@@ -26,7 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ฟังก์ชันดึงข้อมูลจาก API
   Future<void> fetchUserProfile() async {
-    final url = Uri.parse('http://localhost:3000/profile');
+    final url = Uri.parse('http://localhost:3000/api/profile');
 
     try {
       final response = await http.get(

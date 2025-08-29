@@ -3,8 +3,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PetFormScreen extends StatefulWidget {
+  final String userEmail;
+  const PetFormScreen({super.key, required this.userEmail});
+
   @override
   _PetFormScreenState createState() => _PetFormScreenState();
 }
@@ -12,14 +16,14 @@ class PetFormScreen extends StatefulWidget {
 class _PetFormScreenState extends State<PetFormScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController ageController = TextEditingController();
-  final TextEditingController ownerEmailController = TextEditingController(); // Add the owner email controller
-  final TextEditingController additionalInfoController = TextEditingController(); // Controller for additional information
+  final TextEditingController additionalInfoController = TextEditingController();
+
   File? _image;
   String? base64Image;
-  String? selectedPetType; // Variable to store pet type
-  final Color themeColor = Color(0xFFFF6600); // Hex color for theme
+  String? selectedPetType;
+  String selectedAgeUnit = 'ขวบ';
+  final Color themeColor = Color(0xFFFF6600);
 
-  // Function to pick and convert the image to Base64
   Future<void> pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
@@ -31,9 +35,17 @@ class _PetFormScreenState extends State<PetFormScreen> {
     }
   }
 
-  // Function to submit pet data with Base64 image
   Future<void> submitPetData() async {
-    if (selectedPetType == null || nameController.text.isEmpty || ageController.text.isEmpty || ownerEmailController.text.isEmpty) {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    if (token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Token ไม่ถูกต้องหรือหมดอายุ')),
+      );
+      return;
+    }
+
+    if (selectedPetType == null || nameController.text.isEmpty || ageController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('กรุณากรอกข้อมูลให้ครบถ้วน')),
       );
@@ -43,166 +55,206 @@ class _PetFormScreenState extends State<PetFormScreen> {
     final url = Uri.parse('http://10.0.2.2:3000/api/auth/pets');
     final response = await http.post(
       url,
-      headers: {'Content-Type': 'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
       body: json.encode({
         'name': nameController.text,
-        'type': selectedPetType, // Use the selected pet type
+        'type': selectedPetType,
         'age': int.parse(ageController.text),
-        'owner_email': ownerEmailController.text, // Send the owner email
-        'additional_info': additionalInfoController.text, // Send additional information
-        'image': base64Image ?? '', // Send the image as Base64
+        'age_unit': selectedAgeUnit,
+        'owner_email': widget.userEmail,
+        'additional_info': additionalInfoController.text,
+        'image': base64Image ?? '',
       }),
     );
 
     if (response.statusCode == 201) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('บันทึกข้อมูลสัตว์เลี้ยงสำเร็จ')));
-      nameController.clear();
-      ageController.clear();
-      ownerEmailController.clear(); // Clear owner email
-      additionalInfoController.clear(); // Clear additional information
-      setState(() {
-        _image = null;
-        base64Image = null;
-        selectedPetType = null; // Reset pet type
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('บันทึกข้อมูลสัตว์เลี้ยงสำเร็จ')),
+      );
+      Navigator.pop(context, true); // ส่งค่า true กลับเพื่อ refresh list
+    } else if (response.statusCode == 401) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Token หมดอายุหรือไม่ถูกต้อง')),
+      );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึกข้อมูล')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เกิดข้อผิดพลาดในการบันทึกข้อมูล')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        backgroundColor: themeColor,
         title: Text('กรอกข้อมูลสัตว์เลี้ยง'),
+        backgroundColor: themeColor,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // TextField for Pet Name
-            TextField(
-              controller: nameController,
-              decoration: InputDecoration(
-                labelText: 'ชื่อสัตว์เลี้ยง',
-                labelStyle: TextStyle(color: themeColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: themeColor),
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'ชื่อสัตว์เลี้ยง',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        prefixIcon: Icon(Icons.pets),
+                      ),
+                    ),
+                    SizedBox(height: 15),
+                    DropdownButtonFormField<String>(
+                      value: selectedPetType,
+                      items: ['Dog', 'Cat']
+                          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                          .toList(),
+                      onChanged: (v) => setState(() => selectedPetType = v),
+                      decoration: InputDecoration(
+                        labelText: 'ประเภทสัตว์เลี้ยง',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                    ),
+                    SizedBox(height: 15),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: ageController,
+                            decoration: InputDecoration(
+                              labelText: 'อายุ',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                              prefixIcon: Icon(Icons.calendar_today),
+                            ),
+                            keyboardType: TextInputType.number,
+                          ),
+                        ),
+                        SizedBox(width: 10),
+                        Expanded(
+                          flex: 1,
+                          child: DropdownButtonFormField<String>(
+                            value: selectedAgeUnit,
+                            items: ['ขวบ', 'เดือน']
+                                .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                                .toList(),
+                            onChanged: (value) => setState(() => selectedAgeUnit = value!),
+                            decoration: InputDecoration(
+                              labelText: 'หน่วย',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 15),
+                    TextField(
+                      controller: additionalInfoController,
+                      decoration: InputDecoration(
+                        labelText: 'ข้อมูลเพิ่มเติม',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        prefixIcon: Icon(Icons.info),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: pickImage,
+                      child: _image != null
+                          ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          _image!,
+                          height: 150,
+                          width: 150,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                          : Container(
+                        height: 150,
+                        width: 150,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.grey[300],
+                        ),
+                        child: Icon(
+                          Icons.add_a_photo,
+                          size: 50,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: submitPetData,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themeColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: Text(
+                          'บันทึกข้อมูล',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              keyboardType: TextInputType.text,
-              textInputAction: TextInputAction.next,
-            ),
-            SizedBox(height: 16),
-
-            // DropdownButton for Pet Type
-            DropdownButtonFormField<String>(
-              value: selectedPetType,
-              items: ['Dog', 'Cat'].map((String type) {
-                return DropdownMenuItem<String>(
-                  value: type,
-                  child: Text(type),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedPetType = value;
-                });
-              },
-              decoration: InputDecoration(
-                labelText: 'ประเภทสัตว์เลี้ยง',
-                labelStyle: TextStyle(color: themeColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: themeColor),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // TextField for Pet Age
-            TextField(
-              controller: ageController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: 'อายุสัตว์เลี้ยง',
-                labelStyle: TextStyle(color: themeColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: themeColor),
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // TextField for Owner Email
-            TextField(
-              controller: ownerEmailController, // Bind to the owner email field
-              decoration: InputDecoration(
-                labelText: 'อีเมลเจ้าของ',
-                labelStyle: TextStyle(color: themeColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: themeColor),
-                ),
-              ),
-              keyboardType: TextInputType.emailAddress, // For email input
-            ),
-            SizedBox(height: 16),
-
-            // TextField for Additional Information
-            TextField(
-              controller: additionalInfoController,
-              decoration: InputDecoration(
-                labelText: 'ข้อมูลเพิ่มเติม',
-                labelStyle: TextStyle(color: themeColor),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: themeColor),
-                ),
-              ),
-              maxLines: 4,
-              keyboardType: TextInputType.text,
-            ),
-            SizedBox(height: 16),
-
-            // Display Image or Text if no image selected
-            _image != null
-                ? Image.file(_image!, height: 150, width: 150, fit: BoxFit.cover)
-                : Text(
-              'ยังไม่มีรูปภาพ',
-              style: TextStyle(color: Colors.grey),
-            ),
-            SizedBox(height: 16),
-
-            // Button to pick Image
-            ElevatedButton.icon(
-              icon: Icon(Icons.image),
-              label: Text('เลือกรูปภาพ'),
-              onPressed: pickImage,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeColor,
-                padding: EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-                textStyle: TextStyle(fontSize: 16),
-              ),
-            ),
-            SizedBox(height: 24),
-
-            // Submit Button
-            ElevatedButton(
-              onPressed: submitPetData,
-              child: Text('บันทึกข้อมูล'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: themeColor,
-                padding: EdgeInsets.symmetric(vertical: 14.0, horizontal: 16.0),
-                textStyle: TextStyle(fontSize: 18),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class Pet {
+  final int id;
+  final String name;
+  final String type;
+  final int age;
+  final String ageUnit;
+  final String ownerEmail;
+  final String? additionalInfo;
+  final String? image;
+
+  Pet({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.age,
+    required this.ageUnit,
+    required this.ownerEmail,
+    this.additionalInfo,
+    this.image,
+  });
+
+  factory Pet.fromJson(Map<String, dynamic> json) {
+    return Pet(
+      id: json['id'] ?? 0,
+      name: json['name']?.toString() ?? '',
+      type: json['type']?.toString() ?? '',
+      age: json['age'] ?? 0,
+      ageUnit: json['age_unit']?.toString() ?? 'ขวบ',
+      ownerEmail: json['owner_email']?.toString() ?? '',
+      additionalInfo: json['additional_info']?.toString(),
+      image: json['image']?.toString(),
     );
   }
 }

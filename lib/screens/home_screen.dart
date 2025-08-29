@@ -1,38 +1,108 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 
 class HomeScreen extends StatefulWidget {
-  final String firstName;
-  final String email;
-  final String userType;
-
-  const HomeScreen({
-    super.key,
-    required this.firstName,
-    required this.email,
-    required this.userType,
-  });
+  const HomeScreen({super.key});
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  File? _profileImage; // ตัวแปรเก็บรูปโปรไฟล์
+  File? _profileImage;
+  String? firstName;
+  String? lastName;
+  String? email;
+  String? userType;
+  bool isLoading = true;
+  String? token;
+  String? errorMessage;
 
-  // ฟังก์ชันสำหรับเลือกภาพจากแกลเลอรีหรือถ่ายจากกล้อง
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery); // เลือกรูปจากแกลเลอรี
-    if (image != null) {
+  @override
+  void initState() {
+    super.initState();
+    _loadTokenAndProfile();
+  }
+
+  Future<void> _loadTokenAndProfile() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    token = prefs.getString('token');
+
+    if (token == null || JwtDecoder.isExpired(token!)) {
+      // token ไม่มีหรือหมดอายุ → ไป login
+      await prefs.remove('token');
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
+      // token ถูกต้อง → decode และ fetch profile
+      Map<String, dynamic> decodedToken = JwtDecoder.decode(token!);
+      email = decodedToken['email'];
+      userType = decodedToken['userType']?.toLowerCase();
+      await _fetchProfile();
+    }
+  }
+
+  Future<void> _fetchProfile() async {
+    try {
+      final response = await http.get(
+        Uri.parse("http://10.0.2.2:3000/api/auth/user/profile"),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          firstName = data["firstName"];
+          lastName = data["lastName"];
+          email = data["email"];
+          userType = data["userType"]?.toLowerCase();
+          isLoading = false;
+        });
+
+        if (firstName == null || email == null || userType == null) {
+          setState(() {
+            errorMessage = "ข้อมูลผู้ใช้ไม่ครบถ้วน: ${data.toString()}";
+          });
+        }
+      } else if (response.statusCode == 401) {
+        setState(() {
+          errorMessage = "Token หมดอายุหรือไม่ถูกต้อง กรุณา login ใหม่";
+          isLoading = false;
+        });
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.remove('token');
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        setState(() {
+          errorMessage = "โหลดข้อมูลไม่สำเร็จ: ${response.body}";
+          isLoading = false;
+        });
+      }
+    } catch (e) {
       setState(() {
-        _profileImage = File(image.path); // อัปเดตรูปโปรไฟล์
+        errorMessage = "เกิดข้อผิดพลาด: $e";
+        isLoading = false;
       });
     }
   }
 
-  // ฟังก์ชันแสดง Dialog ยืนยันการออกจากระบบ
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _profileImage = File(image.path);
+      });
+    }
+  }
+
   void _showLogoutConfirmationDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -40,21 +110,19 @@ class _HomeScreenState extends State<HomeScreen> {
         return AlertDialog(
           title: Text('ออกจากระบบ'),
           content: Text('คุณแน่ใจไหม ว่าจะออกจากระบบ?'),
-          actions: <Widget>[
+          actions: [
             TextButton(
               child: Text('ยกเลิก', style: TextStyle(color: Colors.grey)),
-              onPressed: () {
-                Navigator.of(context).pop(); // ปิด dialog
-              },
+              onPressed: () => Navigator.of(context).pop(),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFFF6600), // ปุ่มสีส้ม
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF6600)),
               child: Text('ยืนยัน', style: TextStyle(color: Colors.white)),
-              onPressed: () {
-                Navigator.of(context).pop(); // ปิด dialog ก่อน
-                Navigator.pushReplacementNamed(context, '/login'); // ไปหน้า login
+              onPressed: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                await prefs.remove('token');
+                Navigator.of(context).pop();
+                Navigator.pushReplacementNamed(context, '/login');
               },
             ),
           ],
@@ -65,25 +133,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text('หน้าหลัก'), backgroundColor: Color(0xFFFF6600)),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('หน้าหลัก'), backgroundColor: Color(0xFFFF6600)),
+        body: Center(
+          child: Text(errorMessage!, style: TextStyle(color: Colors.red, fontSize: 16)),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text('หน้าหลัก', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Color(0xFFFF6600),
         elevation: 0,
-        automaticallyImplyLeading: false, // ไม่มีปุ่มย้อนกลับ
+        automaticallyImplyLeading: false,
         actions: [
-          IconButton(
-            icon: Icon(Icons.settings, color: Colors.white),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              _showLogoutConfirmationDialog(context); // ใช้ Dialog เมื่อกด logout
-            },
-          ),
+          IconButton(icon: Icon(Icons.settings, color: Colors.white), onPressed: () => Navigator.pushNamed(context, '/settings')),
+          IconButton(icon: Icon(Icons.logout, color: Colors.white), onPressed: () => _showLogoutConfirmationDialog(context)),
         ],
       ),
       body: SafeArea(
@@ -93,12 +167,9 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildUserInfoCard(context),
+                _buildUserInfoCard(),
                 SizedBox(height: 20),
-                Text(
-                  'เมนูการใช้งาน',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-                ),
+                Text('เมนูการใช้งาน', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
                 SizedBox(height: 10),
                 _buildUserMenu(context),
               ],
@@ -109,8 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ส่วนแสดงข้อมูลผู้ใช้งาน พร้อมไอคอน Edit และการเปลี่ยนรูปโปรไฟล์
-  Widget _buildUserInfoCard(BuildContext context) {
+  Widget _buildUserInfoCard() {
     return Card(
       elevation: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -128,35 +198,20 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(widget.firstName, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 18)),
-            IconButton(
-              icon: Icon(Icons.edit, color: Color(0xFFFF6600)),
-              onPressed: () {
-                Navigator.pushNamed(context, '/edit-profile');
-              },
-            ),
+            Text(firstName ?? "", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black)),
+            IconButton(icon: Icon(Icons.edit, color: Color(0xFFFF6600)), onPressed: () => Navigator.pushNamed(context, '/edit-profile')),
           ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.email, style: TextStyle(color: Colors.black, fontSize: 16)),
+            Text(email ?? "", style: TextStyle(color: Colors.black, fontSize: 16)),
             SizedBox(height: 5),
             Row(
               children: [
-                Icon(
-                  widget.userType == 'owner' ? Icons.pets : Icons.business,
-                  size: 18,
-                  color: Colors.green,
-                ),
+                Icon(userType == 'owner' ? Icons.pets : Icons.business, size: 18, color: Colors.green),
                 SizedBox(width: 5),
-                Text(
-                  widget.userType == 'owner' ? 'เจ้าของสัตว์เลี้ยง' : 'ผู้รับฝากสัตว์เลี้ยง',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(userType == 'owner' ? 'เจ้าของสัตว์เลี้ยง' : 'ผู้รับฝากสัตว์เลี้ยง', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
               ],
             ),
           ],
@@ -165,34 +220,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // เมนูสำหรับแต่ละประเภทผู้ใช้
   Widget _buildUserMenu(BuildContext context) {
-    if (widget.userType == 'owner') {
+    if (userType == 'owner') {
       return Column(
         children: [
           _menuItem(context, Icons.pets, 'จองการรับฝากสัตว์เลี้ยง', '/booking'),
-          _menuItem(context, Icons.edit, 'กรอกข้อมูลสัตว์เลี้ยง', '/pet-info'),
-          _menuItem(context, Icons.pets, 'รายการสัตว์เลี้ยงของฉัน', '/pet-list', userEmail: widget.email),
-          _menuItem(context, Icons.history, 'ติดตามสถานะของสัตว์เลี้ยง', '/update'),
+          _menuItem(context, Icons.edit, 'กรอกข้อมูลสัตว์เลี้ยง', '/pet-info', userEmail: email),
+          _menuItem(context, Icons.pets, 'รายการสัตว์เลี้ยงของฉัน', '/pet-list', userEmail: email),
+          _menuItem(context, Icons.history, 'ติดตามสัตว์เลี้ยง', '/update'),
           _menuItem(context, Icons.history, 'ประวัติการฝาก', '/history'),
         ],
       );
-    } else if (widget.userType == 'sitter') {
+    } else if (userType == 'sitter') {
       return Column(
         children: [
-          _menuItem(context, Icons.pets, 'จองการรับฝากสัตว์เลี้ยง', '/booking'),
-          _menuItem(context, Icons.edit, 'กรอกข้อมูลแนะตัวในหน้าหลัก', '/extends'),
-          _menuItem(context, Icons.list, 'รายการคำขอรับฝาก', '/requests'),
-          _menuItem(context, Icons.list, 'แจ้งสถานะของสัตว์เลี้ยง', '/update2'),
+          _menuItem(context, Icons.edit, 'กรอกข้อมูลแนะตัวในหน้าหลัก', '/extends', userEmail: email),
+          _menuItem(context, Icons.list, 'รายการคำขอรับฝาก', '/requests', userEmail: email),
+          _menuItem(context, Icons.list, 'สถานะของสัตว์เลี้ยงที่รับฝาก', '/update2', userEmail: email),
+          _menuItem(context, Icons.edit, 'ดูโปรไฟส์หน้าร้าน', '/homey', userEmail: email),
         ],
       );
     } else {
-      return Center(child: Text('เกิดข้อผิดพลาดในการโหลดเมนู', style: TextStyle(color: Colors.black, fontSize: 16)));
+      return Center(
+        child: Text('เกิดข้อผิดพลาดในการโหลดเมนู', style: TextStyle(color: Colors.black, fontSize: 16)),
+      );
     }
   }
 
-  // ฟังก์ชันสร้างไอเท็มเมนู พร้อมเพิ่มฟังก์ชันการนำทาง
-  Widget _menuItem(BuildContext context, IconData icon, String title, String route, {String? userEmail}) {
+  Widget _menuItem(
+      BuildContext context,
+      IconData icon,
+      String title,
+      String route, {
+        String? userEmail,
+      }) {
     return Card(
       margin: EdgeInsets.symmetric(vertical: 5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
